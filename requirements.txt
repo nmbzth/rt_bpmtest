@@ -1,0 +1,2 @@
+soundcard>=0.4
+numpy>=1.20
