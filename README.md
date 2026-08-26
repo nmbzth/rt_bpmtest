@@ -45,7 +45,7 @@
 已经打包好的可执行文件：
 
 ```text
-dist/RTBPM.exe
+dist/RTBPM-v3.0.exe
 ```
 
 双击即可运行。

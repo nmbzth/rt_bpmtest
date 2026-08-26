@@ -32,7 +32,7 @@
 | loopback 采集修复 | ✅ 已修复并重新打包 |
 | PyInstaller 打包 | ✅ 已完成 |
 | v3.0 三位小数 BPM 精度 | ✅ 已实现：合成 60s 误差 ≤0.0015，σ≤0.0005 |
-| 打包后 exe | ✅ `dist/RTBPM.exe`（v2.2/v3.0 待重建） |
+| 打包后 exe | ✅ `dist/RTBPM-v3.0.exe`（已重建） |
 
 ---
 
