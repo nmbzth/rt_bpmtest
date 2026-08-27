@@ -262,6 +262,7 @@ class App:
         self.mode_var = tk.StringVar()
         self.level_var = tk.DoubleVar(value=0.0)
         self.last_heartbeat = 0.0
+        self._device_load_serial = 0
         self.mode_var.set(STRATEGIES[0].display_name)
 
         self._build_top_bar()
@@ -378,17 +379,54 @@ Hop 越大，速度更快，但可能损失时间精度。
         )
 
     def _load_devices(self):
+        """异步/延迟枚举音频设备，避免启动和刷新时阻塞 UI。"""
+        self._device_load_serial += 1
+        serial = self._device_load_serial
+        self.device_combo.config(state="disabled")
+        self.device_combo["values"] = []
+        self.device_var.set("正在枚举...")
+        self.start_btn.config(state="disabled")
+        threading.Thread(
+            target=self._device_load_worker,
+            args=(serial,),
+            daemon=True,
+        ).start()
+
+    def _device_load_worker(self, serial: int):
         try:
             devices = list_sound_devices()
+            self.result_queue.put({
+                "type": "devices",
+                "serial": serial,
+                "devices": devices,
+                "error": None,
+            })
         except Exception as exc:
+            self.result_queue.put({
+                "type": "devices",
+                "serial": serial,
+                "devices": [],
+                "error": str(exc),
+            })
+
+    def _apply_devices(self, msg: dict):
+        if msg.get("serial") != self._device_load_serial:
+            return
+        self.device_combo.config(state="readonly")
+        self.start_btn.config(state="normal")
+        error = msg.get("error")
+        if error:
             self.device_combo["values"] = []
             self.device_var.set("")
-            messagebox.showwarning("提示", f"无法获取音频设备：\n{exc}")
+            messagebox.showwarning("提示", f"无法获取音频设备：\n{error}")
             return
+        devices = msg.get("devices", [])
         names = [name for _, name in devices]
         self.device_combo["values"] = names
         if names:
             self.device_var.set(names[0])
+        else:
+            self.device_var.set("")
 
     def _on_mode_change(self, event=None):
         if self.worker is not None and self.worker.is_alive():
@@ -418,6 +456,9 @@ Hop 越大，速度更快，但可能损失时间精度。
             self._start()
 
     def _start(self):
+        if self.device_var.get() == "正在枚举...":
+            messagebox.showinfo("提示", "正在枚举音频设备，请稍候...")
+            return
         if not self.device_var.get():
             messagebox.showwarning("提示", "请先选择输出设备。")
             return
@@ -479,6 +520,9 @@ Hop 越大，速度更快，但可能损失时间精度。
         try:
             while True:
                 item = self.result_queue.get_nowait()
+                if isinstance(item, dict) and item.get("type") == "devices":
+                    self._apply_devices(item)
+                    continue
                 if isinstance(item, dict) and item.get("type") == "error":
                     messagebox.showerror("错误", item.get("message", "未知错误"))
                     self._stop()
