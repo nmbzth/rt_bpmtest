@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import queue
+import sys
 import threading
 import time
 import tkinter as tk
@@ -14,12 +15,30 @@ import numpy as np
 from bpm_strategies import BpmResult, STRATEGIES, STRATEGY_MAP
 
 
+def ensure_com_initialized() -> None:
+    """Windows 上 soundcard/WASAPI 的 COM 必须按线程初始化。
+
+    soundcard 只在模块首次 import 的线程里调用 CoInitializeEx；后台线程
+    再次调用 all_speakers()/录音时会报 0x800401f0（CO_E_NOTINITIALIZED）。
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        hr = int(ctypes.windll.ole32.CoInitializeEx(None, 0))
+        # S_OK(0) / S_FALSE(1) / RPC_E_CHANGED_MODE(0x80010106) 均可继续使用
+        _ = hr
+    except Exception:
+        pass
+
+
 def list_sound_devices():
     """返回可用的系统输出设备列表。"""
     try:
         import soundcard as sc
     except ImportError:
         raise RuntimeError("未安装 soundcard，请先执行: pip install soundcard")
+    ensure_com_initialized()
     speakers = sc.all_speakers()
     return [(i, spk.name) for i, spk in enumerate(speakers)]
 
@@ -45,6 +64,10 @@ class AudioCaptureThread(threading.Thread):
         except ImportError as exc:
             self.result_queue.put({"type": "error", "message": str(exc)})
             return
+
+        # v3.0 修复：录音线程也需要按线程初始化 COM，否则
+        # 设备枚举线程结束后再录音会报 0x800401f0。
+        ensure_com_initialized()
 
         try:
             speaker = None
