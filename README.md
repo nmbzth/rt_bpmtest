@@ -80,9 +80,7 @@ set RTBPM_EXE_NAME=RTBPM-v2.0 && python -m PyInstaller --noconfirm --clean rt_bp
 
 ## 平台说明
 
-- Windows：`soundcard` 通常直接使用 WASAPI loopback。
-- macOS：可能需要 BlackHole。
-- Linux：使用 PulseAudio/PipeWire monitor source。
+- 目前仅支持Windows平台。使用Windows WASAPI loopback。
 
 ## FFT 和 Hop 说明
 
